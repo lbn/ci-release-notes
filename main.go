@@ -26,7 +26,14 @@ var (
 func createReleaseNotes(prs []*github.PullRequest) string {
 	var lines []string
 	for _, pr := range prs {
-		lines = append(lines, fmt.Sprintf("[#%d](%s) - %s [%s]", *pr.Number, *pr.HTMLURL, *pr.Title, *pr.User.Login))
+		labelSplit := strings.Split(*pr.Head.Label, ":")
+
+		branchSplit := strings.Split(labelSplit[len(labelSplit)-1], "/")
+		if len(branchSplit) != 2 || !(branchSplit[0] == "feature" || branchSplit[0] == "bug") {
+			continue
+		}
+
+		lines = append(lines, fmt.Sprintf("[#%d](%s) - %s @%s", *pr.Number, *pr.HTMLURL, *pr.Title, *pr.User.Login))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -48,7 +55,6 @@ func addReleaseNotes(client *github.Client, prs []*github.PullRequest) error {
 	}
 
 	*thisRelease.Body = *thisRelease.Body + "\n" + createReleaseNotes(prs)
-	log.Println(*thisRelease.Body)
 	_, _, err = client.Repositories.EditRelease(*owner, *repo, *thisRelease.ID, thisRelease)
 	if err != nil {
 		return err
@@ -84,9 +90,6 @@ func main() {
 		if err != nil {
 			log.Printf("Cannot get pull request: %s", err.Error())
 		}
-		log.Println(*pr.Title)
-		log.Println(*pr.User.Login)
-		log.Println(*pr.URL)
 		prs = append(prs, pr)
 	}
 	err := addReleaseNotes(client, prs)

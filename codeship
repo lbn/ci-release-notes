@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+./get-prs | ./ci-release-notes -repo $CI_REPO_NAME -tag $CI_BRANCH -owner $ORG -token $GITHUB_TOKEN

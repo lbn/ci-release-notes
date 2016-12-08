@@ -14,13 +14,18 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	hiddenTag = "[](/ci-release-notes)"
+)
+
 var (
 	repo  = flag.String("repo", "", "repository name")
 	owner = flag.String("owner", "", "owner (org or user)")
 	token = flag.String("token", "", "OAuth2 token")
 	tag   = flag.String("tag", "", "this release tag")
 
-	errNoRelease = errors.New("no release for this tag")
+	errNoRelease         = errors.New("no release for this tag")
+	errReleaseNotesExist = fmt.Errorf("release notes exist, delete the notes and '%s'", hiddenTag)
 )
 
 func createReleaseNotes(prs []*github.PullRequest) string {
@@ -35,6 +40,7 @@ func createReleaseNotes(prs []*github.PullRequest) string {
 
 		lines = append(lines, fmt.Sprintf("[#%d](%s) - %s @%s", *pr.Number, *pr.HTMLURL, *pr.Title, *pr.User.Login))
 	}
+	lines = append(lines, hiddenTag)
 	return strings.Join(lines, "\n")
 }
 
@@ -52,6 +58,10 @@ func addReleaseNotes(client *github.Client, prs []*github.PullRequest) error {
 
 	if thisRelease == nil {
 		return errNoRelease
+	}
+
+	if strings.Contains(*thisRelease.Body, hiddenTag) {
+		return errReleaseNotesExist
 	}
 
 	*thisRelease.Body = *thisRelease.Body + "\n" + createReleaseNotes(prs)
@@ -93,7 +103,7 @@ func main() {
 		prs = append(prs, pr)
 	}
 	err := addReleaseNotes(client, prs)
-	if err == errNoRelease {
+	if err == errNoRelease || err == errReleaseNotesExist {
 		log.Println(err)
 	} else if err != nil {
 		log.Fatal(err)
